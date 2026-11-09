@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Сверка реквизитов</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --ink:#15181d; --muted:#5d6672; --line:#e2e5ea;
+  --accent:#2f5bea; --accent-ink:#ffffff; --soft:#eef2fd;
+  --ok:#1f8a4c; --ok-soft:#e6f5ec; --warn:#b26a00; --warn-soft:#fff3df; --bad:#c62f2f; --bad-soft:#fdeaea;
+  --radius:14px; --gap:16px; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0f1115; --panel:#171a20; --ink:#e8eaee; --muted:#9aa3ae; --line:#2a2f37; --soft:#1c2333;
+    --accent:#6f8cff; --accent-ink:#0b0d12; --ok:#4cc27f; --ok-soft:#14261c; --warn:#f0b04a; --warn-soft:#2a2112; --bad:#ff6b6b; --bad-soft:#2c1717;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+header{padding:20px 16px 0;max-width:1200px;margin:0 auto}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 14px;font-size:14px}
+nav{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+nav button{border:0;background:none;color:var(--muted);padding:10px 12px;font:inherit;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+main{max-width:1200px;margin:0 auto;padding:var(--gap) 16px 40px}
+.tab{display:none}.tab.on{display:block}
+.grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:var(--gap);align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.card+.card{margin-top:var(--gap)}
+.card h2{font-size:16px;margin:0 0 12px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+textarea{min-height:150px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.row{grid-template-columns:1fr}}
+.mono{font-family:var(--mono);font-size:14px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+button.b{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:9px 14px;font:inherit;cursor:pointer}
+button.b:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--soft);border-radius:999px;padding:6px 12px;font-size:13px;cursor:pointer;color:var(--ink)}
+.chip:hover{border-color:var(--accent)}
+.verdict{border-radius:12px;padding:16px;display:flex;gap:14px;align-items:center;min-height:86px}
+.verdict .score{font-size:30px;font-weight:700;min-width:64px;text-align:center}
+.verdict.low{background:var(--ok-soft);color:var(--ok)}
+.verdict.mid{background:var(--warn-soft);color:var(--warn)}
+.verdict.high{background:var(--bad-soft);color:var(--bad)}
+.verdict.none{background:var(--soft);color:var(--muted)}
+.verdict b{display:block;font-size:17px}
+.verdict span{color:var(--ink);font-size:14px}
+ul.sig{list-style:none;padding:0;margin:12px 0 0}
+ul.sig li{border-top:1px solid var(--line);padding:10px 0;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:6px}
+.dot.high{background:var(--bad)}.dot.mid{background:var(--warn)}.dot.low{background:var(--ok)}
+.pts{color:var(--muted);font-size:13px;white-space:nowrap}
+.sig small{display:block;color:var(--muted)}
+ol.check{margin:8px 0 0;padding-left:20px}
+ol.check li{margin:4px 0}
+pre.act{white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;font-family:var(--mono);font-size:12.5px;max-height:320px;overflow:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;border-top:1px solid var(--line);padding:8px 6px;vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:13px}
+.tablewrap{overflow-x:auto}
+.pass{color:var(--ok);font-weight:600}.fail{color:var(--bad);font-weight:600}
+.note{color:var(--muted);font-size:13px}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:8px}
+.kbd{font-family:var(--mono);background:var(--soft);padding:1px 5px;border-radius:5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Сверка реквизитов</h1>
+  <p class="sub">Проверка письма и счёта поставщика на подмену платёжных реквизитов до оплаты. Всё считается в браузере, данные никуда не отправляются.</p>
+  <nav role="tablist">
+    <button role="tab" data-tab="check" aria-selected="true">Проверка</button>
+    <button role="tab" data-tab="registry" aria-selected="false">Контрагенты</button>
+    <button role="tab" data-tab="log" aria-selected="false">Журнал</button>
+    <button role="tab" data-tab="tests" aria-selected="false">Автотесты</button>
+    <button role="tab" data-tab="about" aria-selected="false">О проекте</button>
+  </nav>
+</header>
+<main>
+<section class="tab on" id="tab-check">
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>Демо-сценарии</h2>
+        <div class="chips" id="scenarios"></div>
+        <p class="note" style="margin:10px 0 0">Сценарии заполняют форму синтетическими данными. Можно вставить своё письмо, но без реальных персональных данных.</p>
+      </div>
+      <div class="card">
+        <h2>Письмо</h2>
+        <div class="row">
+          <div><label for="from">Отправитель (From)</label><input id="from" class="mono" placeholder="buh@supplier.ru" autocomplete="off"></div>
+          <div><label for="replyto">Ответить на (Reply-To)</label><input id="replyto" class="mono" placeholder="если отличается" autocomplete="off"></div>
+        </div>
+        <label for="body">Текст письма</label>
+        <textarea id="body" placeholder="Вставьте текст письма вместе с реквизитами"></textarea>
+        <label for="attach">Вложения (имена файлов через запятую)</label>
+        <input id="attach" class="mono" placeholder="Счёт_123.pdf">
+        <div class="btns"><button class="b" id="extract" type="button">Извлечь реквизиты из текста</button></div>
+      </div>
+      <div class="card">
+        <h2>Счёт к оплате</h2>
+        <label for="contractor">Контрагент из справочника</label>
+        <select id="contractor"></select>
+        <div class="row">
+          <div><label for="payee">Получатель</label><input id="payee" placeholder="ООО «…»"></div>
+          <div><label for="amount">Сумма, ₽</label><input id="amount" inputmode="decimal" class="mono" placeholder="0"></div>
+        </div>
+        <div class="row">
+          <div><label for="inn">ИНН получателя</label><input id="inn" class="mono" inputmode="numeric" maxlength="12"></div>
+          <div><label for="bik">БИК банка</label><input id="bik" class="mono" inputmode="numeric" maxlength="9"></div>
+        </div>
+        <label for="acc">Расчётный счёт</label>
+        <input id="acc" class="mono" inputmode="numeric" maxlength="20">
+        <div class="row">
+          <div><label for="checker">Кто проверяет</label><input id="checker" placeholder="Бухгалтер (роль или инициалы)"></div>
+          <div><label>&nbsp;</label><div class="btns" style="margin:0"><button class="b primary" id="run" type="button">Проверить</button><button class="b" id="clear" type="button">Очистить</button></div></div>
+        </div>
+        <div class="err" id="formErr" role="alert"></div>
+      </div>
+    </div>
+    <div>
+      <div class="card" aria-live="polite">
+        <h2>Результат</h2>
+        <div class="verdict none" id="verdict"><div class="score">—</div><div><b>Нет проверки</b><span>Выберите сценарий или заполните форму и нажмите «Проверить».</span></div></div>
+        <ul class="sig" id="signals"></ul>
+      </div>
+      <div class="card">
+        <h2>Что сделать перед оплатой</h2>
+        <ol class="check" id="checklist"><li class="note">Появится после проверки.</li></ol>
+      </div>
+      <div class="card">
+        <h2>Акт проверки</h2>
+        <pre class="act" id="act">Появится после проверки.</pre>
+        <div class="btns"><button class="b" id="copyAct" type="button" disabled>Скопировать</button><button class="b" id="saveAct" type="button" disabled>Скачать .txt</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="tab-registry">
+  <div class="card">
+    <h2>Справочник проверенных контрагентов</h2>
+    <p class="note">Эталонные реквизиты, подтверждённые при заключении договора. С ними сравнивается каждый счёт. Телефон для обратного звонка берётся только отсюда, а не из письма.</p>
+    <div class="tablewrap"><table id="regTable"></table></div>
+    <h2 style="margin-top:18px">Добавить контрагента</h2>
+    <div class="row">
+      <div><label for="rName">Название</label><input id="rName"></div>
+      <div><label for="rDomain">Почтовый домен</label><input id="rDomain" class="mono" placeholder="supplier.ru"></div>
+    </div>
+    <div class="row">
+      <div><label for="rInn">ИНН</label><input id="rInn" class="mono" maxlength="12"></div>
+      <div><label for="rBik">БИК</label><input id="rBik" class="mono" maxlength="9"></div>
+    </div>
+    <div class="row">
+      <div><label for="rAcc">Расчётный счёт</label><input id="rAcc" class="mono" maxlength="20"></div>
+      <div><label for="rPhone">Телефон для обратного звонка</label><input id="rPhone" class="mono"></div>
+    </div>
+    <label for="rAvg">Обычная сумма платежа, ₽</label><input id="rAvg" class="mono" inputmode="decimal">
+    <div class="btns"><button class="b primary" id="rAdd" type="button">Добавить</button><button class="b" id="rExport" type="button">Экспорт JSON</button></div>
+    <div class="err" id="rErr" role="alert"></div>
+  </div>
+</section>
+
+<section class="tab" id="tab-log">
+  <div class="card">
+    <h2>Журнал проверок</h2>
+    <p class="note">Хранится только в этом браузере. Нужен для разбора инцидентов и подтверждения, что проверка была.</p>
+    <div class="tablewrap"><table id="logTable"></table></div>
+    <div class="btns"><button class="b" id="logClear" type="button">Очистить журнал</button></div>
+  </div>
+</section>
+
+<section class="tab" id="tab-tests">
+  <div class="card">
+    <h2>Автотесты</h2>
+    <p class="note">Функциональные и security-тесты прототипа. Запускаются в браузере на синтетических данных.</p>
+    <div class="btns"><button class="b primary" id="runTests" type="button">Запустить тесты</button></div>
+    <p id="testSummary" style="margin:12px 0 0;font-weight:600"></p>
+    <div class="tablewrap"><table id="testTable"></table></div>
+  </div>
+</section>
+
+<section class="tab" id="tab-about">
+  <div class="card">
+    <h2>Какую задачу решает</h2>
+    <p>Бухгалтер малого бизнеса получает письмо «от поставщика» о смене реквизитов или срочный счёт. Если письмо поддельное, деньги уходят мошенникам, и вернуть их почти невозможно. Сервис за минуту сверяет счёт с эталонной карточкой контрагента, проверяет контрольные суммы ИНН и счёта, ищет похожие домены и формулировки давления. Затем он выдаёт решение и порядок действий: оплатить, перезвонить или остановить платёж.</p>
+    <h2>Что проверяется</h2>
+    <ul>
+      <li>совпадение ИНН, БИК и расчётного счёта с карточкой контрагента;</li>
+      <li>контрольное число ИНН (10 и 12 знаков) и контрольный ключ расчётного счёта по БИК (алгоритм Банка России);</li>
+      <li>смена типа получателя: юрлицо в справочнике, а в счёте ИП или физлицо;</li>
+      <li>домен отправителя: чужой, похожий (подмена букв, <span class="kbd">0</span> вместо <span class="kbd">o</span>, кириллица, punycode), бесплатная почта, расхождение From и Reply-To;</li>
+      <li>формулировки давления и секретности: «срочно», «счёт заблокирован», «не звоните»;</li>
+      <li>сумма заметно выше обычной, опасные вложения (.html, .zip, .exe, .js).</li>
+    </ul>
+    <h2>Ограничения</h2>
+    <p class="note">Сервис не читает почтовые заголовки SPF/DKIM/DMARC и не обращается к внешним базам (ЕГРЮЛ, справочник БИК). Это прототип для учебной демонстрации. Решение об оплате принимает человек, а при высоком риске сервис требует обратного звонка по номеру из справочника.</p>
+  </div>
+</section>
+</main>
+
+<script>
+"use strict";
+// ---------- storage (best effort) ----------
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+
+// ---------- synthetic reference data ----------
+const DEFAULT_REGISTRY = [
+  {id:"c1", name:"ООО «ТехСнаб»", inn:"7704123450", bik:"044525225", acc:"40702810303800012345", domain:"tehsnab-opt.ru", phone:"+7 495 000-11-22", avg:180000},
+  {id:"c2", name:"ООО «Бумага и Ко»", inn:"7715987652", bik:"044525974", acc:"40702810900000098765", domain:"bumaga-co.ru", phone:"+7 495 000-33-44", avg:45000},
+  {id:"c3", name:"ООО «КлинСервис»", inn:"5003123465", bik:"044525593", acc:"40702810310200054321", domain:"klinservice.ru", phone:"+7 495 000-55-66", avg:60000}
+];
+let registry = store.get("registry", null) || DEFAULT_REGISTRY.slice();
+let log = store.get("log", []);
+
+const SCENARIOS = [
+  {title:"Обычный счёт", data:{contractor:"c2", from:"invoice@bumaga-co.ru", replyto:"", attach:"Счёт_1187.pdf", payee:"ООО «Бумага и Ко»", amount:"43800",
+    inn:"7715987652", bik:"044525974", acc:"40702810900000098765",
+    body:"Добрый день!\nНаправляем счёт № 1187 за бумагу А4 (40 пачек) по договору поставки.\nИНН 7715987652, БИК 044525974, р/с 40702810900000098765.\nСпасибо!"}},
+  {title:"Подмена реквизитов", data:{contractor:"c1", from:"irina.sokolova@tehsnab-0pt.ru", replyto:"tehsnab.buh@gmail.com", attach:"Новые_реквизиты.html", payee:"ИП Корнеев А. В.", amount:"640000",
+    inn:"771234567859", bik:"044030653", acc:"40702810255500011223",
+    body:"Здравствуйте!\nВ связи с проверкой налоговой наш расчётный счёт временно заблокирован. Просим срочно оплатить счёт № 552 на новые реквизиты сегодня до 15:00, иначе отгрузка будет перенесена.\nПолучатель: ИП Корнеев А. В., ИНН 771234567859, БИК 044030653, р/с 40702810255500011223.\nПо телефону не дозвониться, отвечайте только на эту почту.\nИрина Соколова, бухгалтерия ТехСнаб"}},
+  {title:"«Директор» просит перевод", data:{contractor:"", from:"director@klinservlce.ru", replyto:"", attach:"", payee:"ООО «Альфа Логистик»", amount:"390000",
+    inn:"7840123473", bik:"044525225", acc:"40702810303800012346",
+    body:"Нужно срочно провести платёж новому подрядчику сегодня. Это конфиденциально, никому не говори и не звони мне, я на переговорах.\nИНН 7840123473, БИК 044525225, р/с 40702810303800012346.\nПодтверди, когда отправишь."}},
+  {title:"Опечатка в счёте", data:{contractor:"c3", from:"buh@klinservice.ru", replyto:"", attach:"Счёт_77.pdf", payee:"ООО «КлинСервис»", amount:"61200",
+    inn:"5003123465", bik:"044525593", acc:"40702810310200054312",
+    body:"Счёт № 77 за уборку офиса в октябре. Реквизиты прежние.\nИНН 5003123465, БИК 044525593, р/с 40702810310200054312."}}
+];
+
+// ---------- validators ----------
+const digits = s => (s||"").replace(/\D/g,"");
+function innValid(inn){
+  if(!/^\d{10}$|^\d{12}$/.test(inn)) return false;
+  const d = inn.split("").map(Number);
+  const cs = (w, n) => w.reduce((s,x,i)=>s+x*d[i],0) % 11 % 10;
+  if(inn.length===10) return cs([2,4,10,3,5,9,4,6,8],9) === d[9];
+  return cs([7,2,4,10,3,5,9,4,6,8],10) === d[10] && cs([3,7,2,4,10,3,5,9,4,6,8],11) === d[11];
+}
+function bikValid(bik){ return /^04\d{7}$/.test(bik); }
+function accValid(acc, bik){
+  if(!/^\d{20}$/.test(acc) || !bikValid(bik)) return false;
+  const s = bik.slice(-3) + acc, w=[7,1,3];
+  let sum = 0; for(let i=0;i<23;i++) sum += (Number(s[i]) * w[i%3]) % 10;
+  return sum % 10 === 0;
+}
+
+// ---------- domain analysis ----------
+const FREE_MAIL = ["gmail.com","mail.ru","yandex.ru","ya.ru","bk.ru","inbox.ru","list.ru","rambler.ru","outlook.com","hotmail.com","yahoo.com","icloud.com","proton.me"];
+const HOMO = {"а":"a","е":"e","о":"o","р":"p","с":"c","у":"y","х":"x","к":"k","м":"m","т":"t","в":"b","н":"h","і":"i","0":"o","1":"l","3":"e"};
+function domainOf(addr){ const m = (addr||"").trim().toLowerCase().match(/@([^\s>]+)$/); return m ? m[1].replace(/\.$/,"") : ""; }
+function skeleton(dom){ return dom.split("").map(c=>HOMO[c]||c).join("").replace(/rn/g,"m").replace(/vv/g,"w").replace(/[-_]/g,""); }
+function lev(a,b){
+  if(Math.abs(a.length-b.length)>3) return 9;
+  const dp = Array.from({length:a.length+1},(_,i)=>[i]);
+  for(let j=1;j<=b.length;j++) dp[0][j]=j;
+  for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++)
+    dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return dp[a.length][b.length];
+}
+function compareDomain(dom, trusted){
+  if(!dom) return "none";
+  if(dom === trusted) return "same";
+  if(dom.startsWith("xn--") || dom.includes(".xn--")) return "lookalike";
+  if(/[^\x00-\x7f]/.test(dom)) return "lookalike";
+  const a = dom.split(".")[0], b = trusted.split(".")[0];
+  if(skeleton(dom) === skeleton(trusted) || skeleton(a) === skeleton(b)) return "lookalike";
+  if(lev(a,b) <= 2 && b.length >= 5) return "lookalike";
+  return "other";
+}
+function looksLikeAny(dom){
+  for(const c of registry){ if(compareDomain(dom, c.domain) === "lookalike") return c; }
+  return null;
+}
+
+// ---------- text analysis ----------
+const PATTERNS = [
+  {id:"change", re:/(нов(ые|ых|ым) реквизит|смен[аеиуы]? реквизит|измен[а-я]* реквизит|сменил[аи]? банк|нов(ый|ому) (расч[её]тн|сч[её]т))/i, pts:15, lvl:"mid", t:"Письмо сообщает о смене реквизитов", d:"Главный признак схемы подмены реквизитов: новые реквизиты приходят письмом, а не через подписанное допсоглашение."},
+  {id:"urgent", re:/(срочно|сегодня до|в течение (часа|дня)|немедленно|иначе|последний день|до конца дня)/i, pts:10, lvl:"mid", t:"Давление сроком", d:"Срочность мешает проверить реквизиты и позвонить поставщику."},
+  {id:"blocked", re:/(сч[её]т (временно )?заблокирован|арест (сч[её]та|счета)|проверк[аио][а-я]* налогов|блокировк[аи] сч[её]та)/i, pts:15, lvl:"mid", t:"Легенда «счёт заблокирован»", d:"Типичное объяснение, зачем платить на другой счёт."},
+  {id:"secret", re:/(конфиденциальн|никому не говор|не звони|не перезванива|не дозвониться|отвечайте только|только на эту почту|не обсуждай)/i, pts:20, lvl:"high", t:"Просьба не звонить и держать в секрете", d:"Мошеннику нужно, чтобы вы не связались с настоящим отправителем."},
+  {id:"boss", re:/(я на переговорах|я на совещании|директор|генеральн[а-я]* директор|руководител)/i, pts:5, lvl:"low", t:"Ссылка на руководителя", d:"Схема «фальшивый директор» (CEO fraud): авторитет вместо документов."}
+];
+const RISKY_EXT = /\.(html?|zip|rar|7z|exe|js|scr|iso|lnk|docm|xlsm)\b/i;
+
+function extractReqs(text){
+  const t = text||"";
+  const out = {};
+  const inn = t.match(/ИНН\D{0,6}(\d{10}(?:\d{2})?)\b/i); if(inn) out.inn = inn[1];
+  const bik = t.match(/БИК\D{0,6}(\d{9})\b/i); if(bik) out.bik = bik[1];
+  const acc = t.match(/(?:р\/с|р\.с\.|расч[её]тн[а-я]* сч[её]т|сч[её]т получателя)\D{0,6}(\d{20})\b/i); if(acc) out.acc = acc[1];
+  return out;
+}
+
+// ---------- core check ----------
+function analyze(input){
+  const s = [];
+  const add = (id, pts, lvl, t, d) => s.push({id, pts, lvl, t, d});
+  const c = registry.find(x => x.id === input.contractor) || null;
+  const inn = digits(input.inn), bik = digits(input.bik), acc = digits(input.acc);
+  const from = domainOf(input.from), rt = domainOf(input.replyto);
+  const body = String(input.body||"").slice(0, 50000);
+  const amount = Number(String(input.amount||"").replace(/\s/g,"").replace(",", ".")) || 0;
+
+  // requisites validity
+  if(inn && !innValid(inn)) add("inn_bad", 30, "high", "ИНН не проходит контрольную сумму", "Такой ИНН не может существовать: опечатка или выдуманные реквизиты.");
+  if(bik && !bikValid(bik)) add("bik_bad", 20, "mid", "БИК в неверном формате", "БИК российского банка состоит из 9 цифр и начинается с 04.");
+  if(acc && bik && bikValid(bik) && !accValid(acc, bik)) add("acc_bad", 30, "high", "Расчётный счёт не сходится с БИК", "Контрольный ключ счёта не совпадает. Либо опечатка, либо счёт не принадлежит этому банку.");
+  if(acc && !/^\d{20}$/.test(acc)) add("acc_len", 20, "mid", "Расчётный счёт не из 20 цифр", "Проверьте номер счёта посимвольно.");
+
+  // compare with registry
+  if(c){
+    if(inn && inn !== c.inn) add("inn_changed", 40, "high", "ИНН получателя не совпадает с карточкой", `В справочнике ${c.name}: ИНН ${c.inn}. Деньги уйдут другому лицу.`);
+    if((acc && acc !== c.acc) || (bik && bik !== c.bik)) add("acc_changed", 40, "high", "Реквизиты банка отличаются от эталонных", `В справочнике: БИК ${c.bik}, р/с ${c.acc}. Смена реквизитов подтверждается только звонком по номеру ${c.phone} и допсоглашением.`);
+    if(inn.length === 12 && c.inn.length === 10) add("payee_type", 25, "high", "Получатель — ИП или физлицо вместо организации", "Поставщик — юрлицо, а платёж просят на ИНН из 12 цифр.");
+    if(amount && c.avg && amount > c.avg * 2) add("amount", 10, "mid", "Сумма заметно выше обычной", `Обычный платёж около ${c.avg.toLocaleString("ru-RU")} ₽, сейчас ${amount.toLocaleString("ru-RU")} ₽.`);
+    const cmp = compareDomain(from, c.domain);
+    if(cmp === "lookalike") add("dom_look", 35, "high", "Домен отправителя похож на домен поставщика, но не совпадает", `Письмо с ${from}, а настоящий домен ${c.domain}. Так выглядит поддельный домен.`);
+    else if(cmp === "other") add("dom_other", 20, "mid", "Письмо пришло не с домена поставщика", `Ожидался ${c.domain}, пришло с ${from}.`);
+    else if(cmp === "none") add("dom_none", 10, "low", "Не указан адрес отправителя", "Без адреса нельзя проверить, от кого письмо.");
+  } else {
+    add("unknown", 25, "mid", "Получателя нет в справочнике", "Новому контрагенту платят только после проверки по ЕГРЮЛ и подписанного договора.");
+    const lk = from && looksLikeAny(from);
+    if(lk) add("dom_look", 35, "high", "Домен отправителя похож на домен известной компании", `${from} подделывает ${lk.domain} (${lk.name}).`);
+  }
+  if(from && FREE_MAIL.includes(from)) add("free_from", 15, "mid", "Отправитель на бесплатной почте", "Компании редко присылают счета с личных ящиков.");
+  if(rt && rt !== from){
+    add("reply_to", 20, "high", "Ответ уйдёт на другой адрес (Reply-To)", `Письмо от ${from || "—"}, а ответ уйдёт на ${rt}.`);
+  }
+  // text
+  let textPts = 0;
+  for(const p of PATTERNS){ if(p.re.test(body)){ const pts = Math.min(p.pts, 45 - textPts); if(pts>0){ textPts += pts; add(p.id, pts, p.lvl, p.t, p.d); } } }
+  const attachments = String(input.attach||"").split(",").map(x=>x.trim()).filter(Boolean);
+  const risky = attachments.filter(a => RISKY_EXT.test(a));
+  if(risky.length) add("attach", 15, "high", "Опасное вложение", `Не открывайте: ${risky.join(", ")}. Счета приходят в PDF, а HTML и архивы часто ведут на фишинговые страницы.`);
+  // consistency between body and form
+  const ex = extractReqs(body);
+  if(ex.acc && acc && ex.acc !== acc) add("mismatch", 10, "mid", "Счёт в письме и в форме различаются", "Сверьте, какой номер вы собираетесь оплачивать.");
+
+  const score = Math.min(100, s.reduce((a,x)=>a+x.pts,0));
+  const level = score >= 50 ? "high" : score >= 20 ? "mid" : "low";
+  s.sort((a,b)=>b.pts-a.pts);
+  return {score, level, signals:s, contractor:c, from, amount};
+}
+
+function checklistFor(r){
+  const c = r.contractor;
+  const phone = c ? c.phone : "номеру из договора или с официального сайта";
+  if(r.level === "high") return [
+    "Остановите платёж. Не отвечайте на письмо и не переходите по ссылкам.",
+    `Позвоните поставщику по ${c ? "номеру из справочника: " + phone : phone}. Номер из письма не используйте.`,
+    "Сообщите руководителю и ответственному за ИБ, приложите акт проверки.",
+    "Если деньги уже ушли, сразу звоните в свой банк и просите отозвать платёж, затем подайте заявление в полицию.",
+    "Смена реквизитов вступает в силу только по подписанному допсоглашению."
+  ];
+  if(r.level === "mid") return [
+    `Перед оплатой подтвердите реквизиты звонком по ${c ? "номеру из справочника: " + phone : phone}.`,
+    "Сверьте ИНН, БИК и счёт посимвольно с договором.",
+    "Платёж согласуйте со вторым сотрудником (принцип двух подписей)."
+  ];
+  return [
+    "Реквизиты совпадают с эталонными. Можно оплачивать в обычном порядке.",
+    "Сохраните акт проверки вместе со счётом."
+  ];
+}
+
+const LV = {high:["Высокий риск","Платёж остановить до подтверждения"], mid:["Средний риск","Нужна дополнительная проверка"], low:["Низкий риск","Реквизиты совпадают с эталонными"]};
+
+async function sha256(text){
+  try{ const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)); return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,"0")).join(""); }
+  catch(e){ return "недоступно"; }
+}
+
+// ---------- UI ----------
+const $ = id => document.getElementById(id);
+const FIELDS = ["contractor","from","replyto","attach","payee","amount","inn","bik","acc","body"];
+function readForm(){ const o={}; FIELDS.forEach(f=>o[f]=$(f).value); o.checker = $("checker").value; return o; }
+function fillForm(d){ FIELDS.forEach(f=>{ $(f).value = d[f] ?? ""; }); }
+function el(tag, props, ...kids){ const e = document.createElement(tag); Object.assign(e, props||{}); kids.forEach(k=>e.append(k)); return e; }
+
+function renderRegistrySelect(){
+  const sel = $("contractor"), cur = sel.value;
+  sel.replaceChildren(el("option",{value:"",textContent:"— нет в справочнике —"}), ...registry.map(c=>el("option",{value:c.id,textContent:c.name})));
+  sel.value = registry.some(c=>c.id===cur) ? cur : "";
+}
+function renderRegistryTable(){
+  const t = $("regTable");
+  t.replaceChildren(el("tr",{}, ...["Название","ИНН","БИК","Р/с","Домен","Телефон","Обычная сумма"].map(h=>el("th",{textContent:h}))));
+  registry.forEach(c=>t.append(el("tr",{}, ...[c.name,c.inn,c.bik,c.acc,c.domain,c.phone,(c.avg||0).toLocaleString("ru-RU")+" ₽"].map(v=>el("td",{textContent:v})))));
+}
+function renderLog(){
+  const t = $("logTable");
+  if(!log.length){ t.replaceChildren(el("tr",{}, el("td",{textContent:"Проверок пока нет.", className:"note"}))); return; }
+  t.replaceChildren(el("tr",{}, ...["Время","Контрагент","Получатель","Сумма","Риск","Баллы","Проверил"].map(h=>el("th",{textContent:h}))));
+  log.slice().reverse().forEach(r=>t.append(el("tr",{}, ...[r.time,r.contractor,r.payee,r.amount,r.level,String(r.score),r.checker].map(v=>el("td",{textContent:v})))));
+}
+
+let lastAct = "";
+async function runCheck(){
+  const input = readForm();
+  $("formErr").textContent = "";
+  if(!digits(input.inn) && !digits(input.acc) && !input.body.trim()){
+    $("formErr").textContent = "Заполните реквизиты счёта или вставьте текст письма.";
+    return;
+  }
+  const r = analyze(input);
+  const v = $("verdict");
+  v.className = "verdict " + r.level;
+  v.replaceChildren(el("div",{className:"score",textContent:String(r.score)}), el("div",{}, el("b",{textContent:LV[r.level][0]}), el("span",{textContent:LV[r.level][1]})));
+  const ul = $("signals");
+  ul.replaceChildren(...(r.signals.length ? r.signals.map(x=>el("li",{}, el("span",{className:"dot "+x.lvl}), el("div",{}, x.t, el("small",{textContent:x.d})), el("span",{className:"pts",textContent:"+"+x.pts}))) : [el("li",{}, el("span",{className:"dot low"}), el("div",{textContent:"Тревожных признаков не найдено."}), el("span"))]));
+  $("checklist").replaceChildren(...checklistFor(r).map(t=>el("li",{textContent:t})));
+  if(window.innerWidth < 900) v.scrollIntoView({behavior:"smooth", block:"start"});
+  const now = new Date();
+  const time = now.toLocaleString("ru-RU");
+  const hash = await sha256(JSON.stringify(input));
+  lastAct = [
+    "АКТ ПРОВЕРКИ ПЛАТЁЖНЫХ РЕКВИЗИТОВ",
+    "Дата и время: " + time,
+    "Проверил: " + (input.checker || "не указано"),
+    "Контрагент по справочнику: " + (r.contractor ? r.contractor.name : "нет в справочнике"),
+    "Получатель в счёте: " + (input.payee || "—"),
+    "ИНН / БИК / р/с: " + [digits(input.inn)||"—", digits(input.bik)||"—", digits(input.acc)||"—"].join(" / "),
+    "Сумма: " + (r.amount ? r.amount.toLocaleString("ru-RU") + " ₽" : "—"),
+    "Отправитель письма: " + (input.from || "—") + (input.replyto ? " (Reply-To: " + input.replyto + ")" : ""),
+    "",
+    "Итог: " + LV[r.level][0] + ", " + r.score + " из 100. " + LV[r.level][1] + ".",
+    "Признаки:",
+    ...(r.signals.length ? r.signals.map((x,i)=>`  ${i+1}. ${x.t} (+${x.pts})`) : ["  не найдены"]),
+    "Действия:",
+    ...checklistFor(r).map((t,i)=>`  ${i+1}. ${t}`),
+    "",
+    "Контрольная сумма входных данных (SHA-256): " + hash
+  ].join("\n");
+  $("act").textContent = lastAct;
+  $("copyAct").disabled = false; $("saveAct").disabled = false;
+  log.push({time, contractor: r.contractor ? r.contractor.name : "—", payee: input.payee || "—", amount: r.amount ? r.amount.toLocaleString("ru-RU") : "—", level: LV[r.level][0], score: r.score, checker: input.checker || "—"});
+  if(log.length > 200) log = log.slice(-200);
+  store.set("log", log); renderLog();
+}
+
+// tabs
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected", x===b ? "true":"false"));
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("on", t.id === "tab-"+b.dataset.tab));
+}));
+SCENARIOS.forEach(sc=>$("scenarios").append(el("button",{className:"chip",type:"button",textContent:sc.title,onclick:()=>{ fillForm(sc.data); runCheck(); }})));
+$("run").onclick = runCheck;
+$("clear").onclick = ()=>{ fillForm({}); $("formErr").textContent=""; };
+$("extract").onclick = ()=>{
+  const ex = extractReqs($("body").value);
+  ["inn","bik","acc"].forEach(k=>{ if(ex[k]) $(k).value = ex[k]; });
+  $("formErr").textContent = Object.keys(ex).length ? "" : "В тексте не найдено ИНН, БИК или р/с.";
+};
+$("copyAct").onclick = async ()=>{ try{ await navigator.clipboard.writeText(lastAct); $("copyAct").textContent="Скопировано"; setTimeout(()=>$("copyAct").textContent="Скопировать",1500);}catch(e){} };
+$("saveAct").onclick = ()=>{
+  const a = el("a",{href:URL.createObjectURL(new Blob([lastAct],{type:"text/plain;charset=utf-8"})), download:"akt-proverki-rekvizitov.txt"});
+  document.body.append(a); a.click(); a.remove();
+};
+$("rAdd").onclick = ()=>{
+  const c = {id:"c"+Date.now(), name:$("rName").value.trim(), inn:digits($("rInn").value), bik:digits($("rBik").value), acc:digits($("rAcc").value), domain:$("rDomain").value.trim().toLowerCase(), phone:$("rPhone").value.trim(), avg:Number(digits($("rAvg").value))||0};
+  const errs = [];
+  if(!c.name) errs.push("название");
+  if(!innValid(c.inn)) errs.push("ИНН (контрольная сумма)");
+  if(!accValid(c.acc, c.bik)) errs.push("БИК и счёт (контрольный ключ)");
+  if(!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(c.domain)) errs.push("домен");
+  if(!c.phone) errs.push("телефон");
+  if(errs.length){ $("rErr").textContent = "Проверьте: " + errs.join(", ") + "."; return; }
+  $("rErr").textContent = "";
+  registry.push(c); store.set("registry", registry); renderRegistryTable(); renderRegistrySelect();
+  ["rName","rInn","rBik","rAcc","rDomain","rPhone","rAvg"].forEach(f=>$(f).value="");
+};
+$("rExport").onclick = ()=>{
+  const a = el("a",{href:URL.createObjectURL(new Blob([JSON.stringify(registry,null,2)],{type:"application/json"})), download:"kontragenty.json"});
+  document.body.append(a); a.click(); a.remove();
+};
+$("logClear").onclick = ()=>{ log = []; store.set("log", log); renderLog(); };
+
+// ---------- tests ----------
+function tests(){
+  const T = [];
+  const t = (name, kind, fn) => { let ok=false, info=""; try{ const r = fn(); ok = r === true || (r && r.ok); info = r && r.info || ""; }catch(e){ info = String(e); } T.push({name, kind, ok, info}); };
+  const S = i => SCENARIOS[i].data;
+  t("ИНН 10 знаков: валидный", "Функциональный", ()=>innValid("7704123450"));
+  t("ИНН 10 знаков: ошибка в цифре", "Функциональный", ()=>!innValid("7704123451"));
+  t("ИНН 12 знаков: валидный", "Функциональный", ()=>innValid("771234567859"));
+  t("Счёт сходится с БИК", "Функциональный", ()=>accValid("40702810303800012345","044525225"));
+  t("Перестановка двух цифр в счёте ловится", "Функциональный", ()=>!accValid("40702810310200054312","044525593"));
+  t("Обычный счёт — низкий риск", "Сценарий", ()=>{ const r=analyze(S(0)); return {ok:r.level==="low", info:r.score+" баллов"}; });
+  t("Подмена реквизитов — высокий риск", "Сценарий", ()=>{ const r=analyze(S(1)); return {ok:r.level==="high" && r.signals.some(x=>x.id==="acc_changed") && r.signals.some(x=>x.id==="dom_look"), info:r.score+" баллов"}; });
+  t("«Директор» — высокий риск, домен-двойник найден", "Сценарий", ()=>{ const r=analyze(S(2)); return {ok:r.level==="high" && r.signals.some(x=>x.id==="dom_look"), info:r.score+" баллов"}; });
+  t("Опечатка в счёте — ключ не сходится", "Сценарий", ()=>{ const r=analyze(S(3)); return {ok:r.signals.some(x=>x.id==="acc_bad") && r.level!=="low", info:r.score+" баллов"}; });
+  t("Кириллическая «о» в домене = двойник", "Security", ()=>compareDomain("tehsnab-оpt.ru","tehsnab-opt.ru")==="lookalike");
+  t("Punycode-домен = двойник", "Security", ()=>compareDomain("xn--tehsnab-opt-9hb.ru","tehsnab-opt.ru")==="lookalike");
+  t("rn вместо m = двойник", "Security", ()=>compareDomain("burnaga-co.ru","bumaga-co.ru")==="lookalike");
+  t("Чужой домен не считается своим", "Security", ()=>compareDomain("evil.ru","bumaga-co.ru")==="other");
+  t("HTML в письме не исполняется (XSS)", "Security", ()=>{
+    const r = analyze({contractor:"c2", body:'<img src=x onerror="window.__xss=1">', inn:"7715987652", bik:"044525974", acc:"40702810900000098765", from:"a@bumaga-co.ru"});
+    const li = el("li",{textContent:'<img src=x onerror="window.__xss=1">'});
+    return li.children.length===0 && !window.__xss && r.level==="low";
+  });
+  t("Очень длинное письмо (200 000 символов) обрабатывается", "Security", ()=>{ const t0=performance.now(); analyze({contractor:"c2", body:"а".repeat(200000)+" срочно", inn:"7715987652"}); const ms=performance.now()-t0; return {ok: ms < 1500, info: Math.round(ms)+" мс"}; });
+  t("Пустая форма не ломает анализ", "Security", ()=>{ const r=analyze({}); return typeof r.score==="number"; });
+  t("Балл не выходит за 100", "Функциональный", ()=>{ const d=Object.assign({},S(1),{replyto:"x@gmail.com", attach:"a.exe, b.zip"}); return analyze(d).score<=100; });
+  return T;
+}
+$("runTests").onclick = ()=>{
+  const T = tests(); const pass = T.filter(x=>x.ok).length;
+  $("testSummary").textContent = `Пройдено ${pass} из ${T.length}`;
+  $("testSummary").className = pass===T.length ? "pass" : "fail";
+  const tb = $("testTable");
+  tb.replaceChildren(el("tr",{}, ...["Тест","Тип","Результат","Детали"].map(h=>el("th",{textContent:h}))));
+  T.forEach(x=>tb.append(el("tr",{}, el("td",{textContent:x.name}), el("td",{textContent:x.kind}), el("td",{className:x.ok?"pass":"fail",textContent:x.ok?"OK":"FAIL"}), el("td",{textContent:x.info}))));
+};
+
+renderRegistrySelect(); renderRegistryTable(); renderLog();
+// deep link to a demo scenario: index.html#demo=2
+const demo = location.hash.match(/demo=(\d)/);
+if(demo && SCENARIOS[demo[1]-1]){ fillForm(SCENARIOS[demo[1]-1].data); runCheck(); }
+</script>
+</body>
+</html>
